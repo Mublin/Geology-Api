@@ -9,6 +9,7 @@ public class LectureNote
     public string NoteName { get; set; }
     public string FilePath { get; set; }
     public string CourseCode { get; set; }
+    public string CourseName { get; set; }
     public int LevelId { get; set; }
     public Level level { get; set; }
 

@@ -1,9 +1,11 @@
 ﻿using Geology_Api.Dtos;
+using Geology_Api.Models;
 using System.Linq;
 
 namespace Geology_Api.Services;
 public static class FileServices
 {
+
     public static string FileValidation(this UploadFileRequestDto file)
     {
         if (file == null || file.UploadFile == null || file.UploadFile.Length == 0)
@@ -36,5 +38,18 @@ public static class FileServices
         }
         return "true";
     }
+    public static LectureNoteDto lectureNoteToDto(this LectureNote lectureNote, int id)
+    {
+        LectureNoteDto lectureNote1 = new(
+            CourseCode: lectureNote.CourseCode,
+            FilePath: lectureNote.FilePath,
+            LevelId: id,
+            LectureNoteId: lectureNote.LectureNoteId,
+            NoteName: lectureNote.NoteName,
+            CourseName: lectureNote.CourseName
+        );
+        return lectureNote1;
+    }
 }
-public record Info(string appKey, string redirectUri, string appSecret, string folderPath);
+
+public record Info(string appKey, string ? redirectUri, string appSecret, string folderPath);

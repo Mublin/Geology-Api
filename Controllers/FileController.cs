@@ -21,34 +21,27 @@ namespace Geology_Api.Controllers
             _context = context;
             _config = config;
         }
-        private Info GetInfo()
-        {
-            Info newInfo = new(appKey: _config["appKey"], appSecret: _config["appSecret"], folderPath: _config["folderPath"], redirectUri: _config["redirectUri"] );
-            return newInfo;
-        }
+        
         // Endpoint to get OAuth2 URL for authentication
 
-        [Authorize(Policy = "UserAccess")]
 
         [HttpGet("auth-url")]
         public IActionResult GetDropboxAuthUrl()
         {
-            Info info = GetInfo();
-            var authorizeUri = DropboxOAuth2Helper.GetAuthorizeUri(OAuthResponseType.Code, info.appKey, new Uri(info.redirectUri));
-            return Ok(authorizeUri.ToString());
+            var newUrl = Request.Host.Value + Request.Path.Value;
+            var authorizeUri = UserServices.GetAuthUrl(_config, newUrl);
+            return Ok(authorizeUri);
         }
 
 
-        [Authorize(Policy = "UserAccess")]
-        [HttpGet("token")]
-        public async Task<IActionResult> GetDropboxToken(string code)
+        [HttpPost("token")]
+        public async Task<IActionResult> GetDropboxToken(string code, RedirectDto redirect)
         {
-            Info info = GetInfo();
+            
             try
             {
-                var response = await DropboxOAuth2Helper.ProcessCodeFlowAsync(code, info.appKey, info.appSecret, info.redirectUri);
-                DateTime ? Expire = response.ExpiresAt;
-                return Ok(new { AccessToken = response.AccessToken, ExpiringTime = Expire, RefreshToken = response.RefreshToken });
+                var data = await UserServices.GetDropboxTokenHandlerAsync(code, _config, redirect.Redirect);
+                return Ok(new { AccessToken = data.AccessToken, ExpiringTime = data.ExpiringTime, RefreshToken = data.RefreshToken });
             }
             catch (Exception ex)
             {
@@ -57,24 +50,24 @@ namespace Geology_Api.Controllers
             }
         }
 
-
-        [Authorize(Policy = "AdminAccess")]
         [HttpPost("upload")]
         public async Task<IActionResult> UploadFile([FromForm] UploadFileRequestDto file, string accessToken)
         {
-            Info info = GetInfo();
+            var newUrl = Request.Host.Value + Request.Path.Value;
+            Info info = UserServices.GetInfo(_config, newUrl);
             string ValidateFile = file.FileValidation();
             if (ValidateFile != "true")
             {
                 return BadRequest(ValidateFile);
             }
+            Console.WriteLine(file.CourseName);
             using (var dbx = new DropboxClient(accessToken))
             {
                 using (var stream = file.UploadFile.OpenReadStream())
                 {
                     // Ensure the file stream is at the beginning
                     stream.Seek(0, SeekOrigin.Begin);
-                    string path = $"/geologydb/{file.DocType}/{file.Level}/{file.CourseCode}/{DateTime.Now}{file.Name}";
+                    string path = $"/geologydb/{file.DocType}/{file.Level}/{file.CourseCode}/{DateTime.Now}{file.CourseName}";
                     var uploadResult = await dbx.Files.UploadAsync(
                         path, // Adjust path based on CourseCode and Name
                         Dropbox.Api.Files.WriteMode.Overwrite.Instance,
@@ -84,11 +77,12 @@ namespace Geology_Api.Controllers
                         NoteName = file.Name,
                         CourseCode = file.CourseCode,
                         FilePath = path,
+                        CourseName = file.CourseName
                         
                     };
                     Level level = new Level()
                     {
-                        LevelNo = file.Level
+                        LevelNo = file.Level,
                     };
                     newLectureNote.level = level;
                     await _context.AddAsync(newLectureNote);
@@ -98,7 +92,6 @@ namespace Geology_Api.Controllers
             }
         }
 
-        [Authorize(Policy = "AdminAccess")]
         [HttpPut("update/{id}")]
         public async Task<IActionResult> UpdateFile(int id, [FromForm] UploadFileRequestDto file, string accessToken)
         {
@@ -122,7 +115,7 @@ namespace Geology_Api.Controllers
                         findFile.FilePath, // Adjust path based on CourseCode and Name
                         Dropbox.Api.Files.WriteMode.Overwrite.Instance,
                         body: stream);
-                    findFile.NoteName = file.Name;
+                    findFile.NoteName = file.CourseName;
                     findFile.CourseCode = file.CourseCode;
                     Level level = new Level()
                     {
@@ -136,11 +129,29 @@ namespace Geology_Api.Controllers
         }
 
 
+        [HttpGet("lecturenotes/{id}")]
+        public async Task<IActionResult> GetLevelNotes(int id)
+        {
+            var files = await _context.Levels
+                                            .Where(x => x.LevelNo == id)
+                                            .SelectMany(l => l.LectureNotes)
+                                            .Select(ln => 
+                                                ln.lectureNoteToDto(id)
+                                            )
+                                            .ToListAsync();
+
+            if (files == null)
+            {
+                return BadRequest("Invalid level");
+            }
+            return Ok(files);
+        }
+
 
         [HttpGet("download/{id}")]
         public async Task<IActionResult> DownloadFile(int id, string accessToken)
         {
-            var file = _context.PastQues.SingleOrDefault(x => x.Id == id);
+            var file = _context.LectureNotes.SingleOrDefault(x => x.LectureNoteId == id);
             if (file == null)
             {
                 return NotFound("Item not found");
@@ -150,7 +161,7 @@ namespace Geology_Api.Controllers
                 var downloadResult = await dbx.Files.DownloadAsync(file.FilePath);
                 var fileContent = await downloadResult.GetContentAsByteArrayAsync();
                 
-                return File(fileContent, "application/octet-stream", file.Name);
+                return File(fileContent, "application/octet-stream", file.CourseName);
             }
         }
 
@@ -158,14 +169,15 @@ namespace Geology_Api.Controllers
         [HttpGet("files")]
         public async Task<IActionResult> GetFiles(string accessToken, string fileName, string notetype, int level, string coursecode)
         {
-            Info info = GetInfo();
+            var newUrl = Request.Host.Value + Request.Path.Value;
+            Info info = UserServices.GetInfo(_config, newUrl);
 
             using (var dbx = new DropboxClient(accessToken))
             {
                 try
                 {
                     // List files in the specified folder
-                    var listFolderResult = await dbx.Files.ListFolderAsync(info.folderPath + $"/{notetype}/{level}/{coursecode}");
+                    var listFolderResult = await dbx.Files.ListFolderAsync($"{info.folderPath}/{notetype}/{level}/{coursecode}");
 
                     // Extract file names and paths
                     var files = listFolderResult.Entries
@@ -193,6 +205,7 @@ namespace Geology_Api.Controllers
             {
                 return NotFound("File not found");
             }
+            
             using (var dbx = new DropboxClient(accessToken))
             {
                 try
@@ -200,6 +213,7 @@ namespace Geology_Api.Controllers
                     // Delete the file from Dropbox
                     var deleteResult = await dbx.Files.DeleteV2Async(file.FilePath);
                     _context.LectureNotes.Remove(file);
+                    await _context.SaveChangesAsync();
 
                     return Ok(new { message = "File deleted successfully", deleteResult.Metadata });
                 }

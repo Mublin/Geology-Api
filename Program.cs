@@ -8,10 +8,11 @@ using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddDbContext<GeologyStoreContext>(options => options.UseNpgsql(builder.Configuration.GetConnectionString("GeoDB")));
+builder.Services.AddDbContext<GeologyStoreContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("GeoDB12")));
 builder.Services.AddCors(options => options.AddPolicy("ReactApp", policy =>
 {
-    policy.AllowAnyOrigin()
+    policy.WithOrigins("https://localhost:5173")
+          .AllowCredentials()
           .AllowAnyHeader()
           .AllowAnyMethod();
 
@@ -33,6 +34,7 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true
     };
+
 }
 );
 
@@ -41,6 +43,10 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminAccess", policy =>
     {
         policy.RequireClaim("isAdmin", "True");
+    });
+    options.AddPolicy("SuperAdminAccess", policy =>
+    {
+        policy.RequireClaim("IsSuperAdmin", "True");
     });
     options.AddPolicy("UserAccess", policy =>
     {
@@ -64,9 +70,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-app.UseHttpsRedirection();
 app.UseCors("ReactApp");
-
+app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
