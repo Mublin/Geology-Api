@@ -1,35 +1,28 @@
 # Stage 1: Build the application
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
+FROM mcr.microsoft.com/dotnet/asp.net:8.0 AS base
+USER app
+WORKDIR /app
+EXPOSE 8080
 
-# Copy the project file and restore dependencies
-COPY Geology_Api.csproj ./ 
-RUN dotnet restore
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG BUILD_CONFIGURATION=Release
+WORKDIR /src/Geology_Api
+COPY ["./Geology_Api.csproj", "./"]
+RUN dotnet restore "./Geology_Api.csproj"
 
 # Copy the rest of the application
 COPY . .
 
 # Build the application
-RUN dotnet build -c Release -o /app/build
+RUN dotnet build "./Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Stage 2: Publish the application
 FROM build AS publish
-RUN dotnet publish -c Release -o /app/publish --no-restore
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish "./Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# Stage 3: Production-ready runtime
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS final
+dockerfileCopy code
+FROM base AS final
 WORKDIR /app
-
-# Copy the published app to the runtime container
-COPY --from=publish /app/publish .
-
-# Expose ports for HTTP (80) and HTTPS (443)
-EXPOSE 80
-EXPOSE 443
-
-# Set environment variables for URLs and HTTPS port
-ENV ASPNETCORE_URLS="https://+:443;http://+:80"
-ENV ASPNETCORE_ENVIRONMENT="Production"
-
-# Set the entry point to run the application
+COPY --from=publish /app/publish
 ENTRYPOINT ["dotnet", "Geology_Api.dll"]
