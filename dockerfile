@@ -3,11 +3,13 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copy the project file and restore dependencies
-COPY ["Geology_Api.csproj", "./"]
+COPY Geology_Api.csproj ./
 RUN dotnet restore
 
-# Copy the entire project and build the application
+# Copy the rest of the application
 COPY . .
+
+# Build the application
 RUN dotnet build -c Release -o /app/build
 
 # Stage 2: Publish the application
@@ -28,9 +30,6 @@ EXPOSE 443
 # Set environment variables for URLs and HTTPS port
 ENV ASPNETCORE_URLS="https://+:443;http://+:80"
 ENV ASPNETCORE_ENVIRONMENT="Production"
-
-# Disable HTTPS certificate validation in container (use real certificates in production)
-# ENV DOTNET_SYSTEM_NET_HTTP_USESSLSTREAM=false
 
 # Set the entry point to run the application
 ENTRYPOINT ["dotnet", "Geology_Api.dll"]
