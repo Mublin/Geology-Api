@@ -1,5 +1,5 @@
 # Stage 1: Build the application
-FROM mcr.microsoft.com/dotnet/asp.net:8.0 AS base
+FROM bitnami/aspnet-core:latest AS base
 USER app
 WORKDIR /app
 EXPOSE 8080
