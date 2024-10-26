@@ -67,12 +67,12 @@ public static class UserServices
     }
     public static string GenerateJwtToken(this User user, IConfiguration Config)
     {
-        var key = Encoding.UTF8.GetBytes(Config["Jwt:Key"]);
+        var key = Encoding.UTF8.GetBytes(Config["Key"]);
         var creds = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: Config["Jwt:Issuer"],
-            audience: Config["Jwt:Audience"],
+            issuer: Config["Issuer"],
+            audience: Config["Audience"],
             claims: new List<Claim>{
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
@@ -91,9 +91,7 @@ public static class UserServices
     }
     public static Info GetInfo(IConfiguration _config, string redirectUrl)
     {
-        Info newInfo = new(appKey: _config["Dropbox:appKey"], appSecret: _config["Dropbox:appSecret"], folderPath: _config["Dropbox:folderPath"], redirectUri: redirectUrl);
-        Console.WriteLine(newInfo.appKey + "  Infomartion");
-        Console.WriteLine("Dropbox:appKey");
+        Info newInfo = new(appKey: _config["appKey"], appSecret: _config["appSecret"], folderPath: _config["folderPath"], redirectUri: redirectUrl);
         return newInfo;
     }
 
@@ -110,7 +108,6 @@ public static class UserServices
         {
             var response = await DropboxOAuth2Helper.ProcessCodeFlowAsync(code, Info.appKey, Info.appSecret, Info.redirectUri);
             DateTime? Expire = response.ExpiresAt;
-            Console.WriteLine(response.AccessToken);
             return new ( AccessToken: response.AccessToken, ExpiringTime: Expire, RefreshToken: response.RefreshToken );
         }
         catch (Exception ex)

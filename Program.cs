@@ -11,7 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<GeologyStoreContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("GeoDB12")));
 builder.Services.AddCors(options => options.AddPolicy("ReactApp", policy =>
 {
-    policy.WithOrigins("https://localhost:5173")
+    policy.WithOrigins("https://buk-geology.vercel.app")
           .AllowCredentials()
           .AllowAnyHeader()
           .AllowAnyMethod();
@@ -26,9 +26,9 @@ builder.Services.AddAuthentication(options =>
     o.UseSecurityTokenValidators = true;
     o.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+        ValidIssuer = builder.Configuration["Issuer"],
+        ValidAudience = builder.Configuration["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Key"])),
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,
