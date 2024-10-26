@@ -9,19 +9,19 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 # Copy and restore dependencies
-COPY Geology_Api.csproj ./
-RUN dotnet restore "Geology_Api.csproj"
+COPY Geology-Api.csproj ./
+RUN dotnet restore "Geology-Api.csproj"
 
 # Copy the entire application and build it
 COPY . . 
-RUN dotnet build "Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "Geology-Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Stage 3: Publish the application
 FROM build AS publish
-RUN dotnet publish "Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "Geology-Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # Stage 4: Final image for running
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Geology_Api.dll"]
+ENTRYPOINT ["dotnet", "Geology-Api.dll"]
