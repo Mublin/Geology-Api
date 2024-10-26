@@ -1,27 +1,29 @@
-# Stage 1: Build the application
-FROM bitnami/aspnet-core:latest AS base
-USER app
+# Stage 1: Base image for runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
 
+# Stage 2: Build the application
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
-WORKDIR /src/Geology_Api
-COPY ["./Geology_Api.csproj", "./"]
-RUN dotnet restore "./Geology_Api.csproj"
+WORKDIR /src
 
-# Copy the rest of the application
-COPY . .
+# Copy and restore dependencies
+COPY ["Geology_Api/Geology_Api.csproj", "Geology_Api/"]
+RUN dotnet restore "Geology_Api/Geology_Api.csproj"
 
-# Build the application
-RUN dotnet build "./Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
+# Copy the entire application and build it
+COPY Geology_Api/. "Geology_Api/"
+WORKDIR "/src/Geology_Api"
+RUN dotnet build "Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# Stage 2: Publish the application
+# Stage 3: Publish the application
 FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
+# Stage 4: Final image for running
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "Geology_Api.dll"]
+
