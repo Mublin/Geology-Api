@@ -8,13 +8,12 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy csproj and restore dependencies
-COPY Geology_Api/Geology_Api.csproj Geology_Api/
-RUN dotnet restore "Geology_Api/Geology_Api.csproj"
+# Copy and restore dependencies
+COPY Geology_Api.csproj ./
+RUN dotnet restore "Geology_Api.csproj"
 
 # Copy the entire application and build it
-COPY Geology_Api/. Geology_Api/
-WORKDIR /src/Geology_Api
+COPY . . 
 RUN dotnet build "Geology_Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Stage 3: Publish the application
